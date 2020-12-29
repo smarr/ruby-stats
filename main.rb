@@ -159,6 +159,8 @@ end
 
 # Classes and modules have commonalities modeled here.
 class ClassOrModuleStats < EntityStats
+  attr_reader :num_inst_vars, :num_class_vars
+
   def initialize(name, outer)
     super(name, outer)
 
