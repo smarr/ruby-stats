@@ -121,6 +121,9 @@ class FileStats < EntityStats
 
     @instance_vars = Set.new
     @num_inst_vars = 0
+
+    @class_vars = Set.new
+    @num_class_vars = 0
   end
 
   def test?
@@ -130,6 +133,11 @@ class FileStats < EntityStats
   def add_instance_var(name)
     @instance_vars.add(name)
     @num_inst_vars = @instance_vars.size
+  end
+
+  def add_class_var(name)
+    @class_vars.add(name)
+    @num_class_vars = @class_vars.size
   end
 
   def add_arg(name)
