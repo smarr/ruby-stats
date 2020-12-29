@@ -492,9 +492,17 @@ class StatsProcessor < Parser::AST::Processor
   end
 end
 
-file_filename = '/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/file.csv'
-method_filename = '/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/methods.csv'
-classes_filename = '/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/classes.csv'
+if ARGV.size < 2
+  puts 'Usage: main.rb input-folder stats-out-folder'
+  exit 1
+end
+
+output_folder = ARGV[1]
+input_folder = ARGV[0]
+
+file_filename = "#{output_folder}/file.csv"
+method_filename = "#{output_folder}/methods.csv"
+classes_filename = "#{output_folder}/classes.csv"
 
 file_file = File.open(file_filename, 'w')
 method_file = File.open(method_filename, 'w')
@@ -507,33 +515,22 @@ classes_csv << %w[project package class numDirectInstVars numClassVars numTotalI
 method_csv = CSV.new(method_file)
 method_csv << %w[project qualifiedPath name lines linesOfCode numArgs numLocals numLiterals isTest isInMethod filename]
 
-root_dir = '/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data'
-# root_dir = "/Users/smarr/Projects/are-we-fast-yet/benchmarks/Ruby"
+root_dir = input_folder
 search_glob = "#{root_dir}/**/*.rb"
-# search_glob = "/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/apps/**/*.rb"
-#
-# Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/gem-local-shared/gems/pg-1.2.3/spec/pg/connection_spec.rb.
-# search_glob = "/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/gem-local-shared/gems/**/*.rb"
-# search_glob = "/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/gem-local-shared/gems/pg-1.2.3/spec/pg/connection_spec.rb"
 
 Dir.glob(search_glob) do |filename|
   begin
-    # puts filename
     processor = StatsProcessor.new(filename, root_dir)
     processor.start
-    # processor.current.each_class {|c| p c.name}
     processor.output_results(file_csv, classes_csv, method_csv)
   rescue StandardError => e
     puts "Some issue processing #{filename}. Exception: #{e}"
     puts e.backtrace
   end
-  # p processor
 end
 
+file_file.close
 method_file.close
 classes_file.close
-
-# filename = "/Users/smarr/Projects/Smalltalk-Code-Characteristics/Ruby-data/refinerycms/pages/app/presenters/refinery/pages/content_presenter.rb"
-# filename = "/Users/smarr/Projects/are-we-fast-yet/benchmarks/Ruby/deltablue.rb"
 
 # https://www.netguru.com/blog/most-loved-ruby-on-rails-open-source
