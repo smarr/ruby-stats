@@ -18,7 +18,6 @@ class EntityStats
 
     @outer_path = nil
 
-    @num_locals = 0
     @locals = Set.new
 
     @line_usage = Hash.new('')
@@ -27,7 +26,22 @@ class EntityStats
 
   def add_local(name)
     @locals.add(name)
-    @num_locals = @locals.size
+  end
+
+  def num_locals
+    @locals.size
+  end
+
+  def num_methods
+    @methods.size
+  end
+
+  def num_classes
+    @classes.size
+  end
+
+  def num_modules
+    @modules.size
   end
 
   def in_method?
@@ -114,6 +128,10 @@ class EntityStats
   def qualified_path
     "#{outer_path}.#{@name}"
   end
+
+  def qualified_name_with_dot
+    "#{@outer.qualified_name_with_dot}#{@name}."
+  end
 end
 
 # FileStats is the root entity corresponding to the Ruby file.
@@ -127,10 +145,7 @@ class FileStats < EntityStats
     @is_test = is_test
 
     @instance_vars = Set.new
-    @num_inst_vars = 0
-
     @class_vars = Set.new
-    @num_class_vars = 0
   end
 
   def test?
@@ -139,12 +154,18 @@ class FileStats < EntityStats
 
   def add_instance_var(name)
     @instance_vars.add(name)
-    @num_inst_vars = @instance_vars.size
+  end
+
+  def num_inst_vars
+    @instance_vars.size
+  end
+
+  def num_class_vars
+    @class_vars.size
   end
 
   def add_class_var(name)
     @class_vars.add(name)
-    @num_class_vars = @class_vars.size
   end
 
   def add_arg(name)
@@ -159,6 +180,10 @@ class FileStats < EntityStats
     @project_name.to_s
   end
 
+  def qualified_name_with_dot
+    ''
+  end
+
   def line_use_type
     :file
   end
@@ -166,26 +191,27 @@ end
 
 # Classes and modules have commonalities modeled here.
 class ClassOrModuleStats < EntityStats
-  attr_reader :num_inst_vars, :num_class_vars
-
   def initialize(name, outer)
     super(name, outer)
 
     @instance_vars = Set.new
     @class_vars = Set.new
-
-    @num_inst_vars = 0
-    @num_class_vars = 0
   end
 
   def add_instance_var(name)
     @instance_vars.add(name)
-    @num_inst_vars = @instance_vars.size
+  end
+
+  def num_inst_vars
+    @instance_vars.size
+  end
+
+  def num_class_vars
+    @class_vars.size
   end
 
   def add_class_var(name)
     @class_vars.add(name)
-    @num_class_vars = @class_vars.size
   end
 end
 
@@ -211,17 +237,19 @@ class ModuleStats < ClassOrModuleStats
   def line_use_type
     :module
   end
+
+  def qualified_name
+    "#{@outer.qualified_name_with_dot}#{@name}"
+  end
 end
 
 # MethodStats represents the explicitly defined methods, closures, lambdas,...
 class MethodStats < EntityStats
-  attr_reader :num_args, :num_locals, :lines, :num_literals
+  attr_reader :lines
 
   def initialize(name, lines, outer)
     super(name, outer)
     @lines = lines
-    @num_args = 0
-    @num_literals = 0
 
     @arguments = []
   end
@@ -236,14 +264,20 @@ class MethodStats < EntityStats
 
   def add_arg(name)
     @arguments.append(name)
-    @num_args = @arguments.size
+  end
+
+  def num_args
+    @arguments.size
+  end
+
+  def num_locals
+    @locals.size
   end
 
   def add_local(name)
     return if @arguments.include? name
 
     @locals.add(name)
-    @num_locals = @locals.size
   end
 
   def add_instance_var(name)
@@ -279,7 +313,7 @@ class StatsProcessor < Parser::AST::Processor
   def output_method(method_csv, method)
     method_csv << [
       @project_name, method.qualified_path, method.name,
-      method.lines, method.lines_of_code, method.num_args, method.num_locals, method.num_literals,
+      method.lines, method.lines_of_code, method.num_args, method.num_locals, 0, # method.num_literals,
       method.test?, method.in_method?,
       @filename
     ]
@@ -288,9 +322,11 @@ class StatsProcessor < Parser::AST::Processor
   def output_module(modules_csv, mod)
     modules_csv << [
       @project_name,
-      mod.name,
+      mod.qualified_name,
       mod.num_inst_vars,
       mod.num_class_vars,
+      mod.num_classes,
+      mod.num_methods,
       @current.test?,
       @filename
     ]
@@ -304,6 +340,8 @@ class StatsProcessor < Parser::AST::Processor
       clazz.num_class_vars,
       0,
       0,
+      clazz.num_classes,
+      clazz.num_methods,
       @current.test?,
       @filename
     ]
@@ -558,9 +596,9 @@ classes_file = File.open(classes_filename, 'w')
 file_csv = CSV.new(file_file)
 file_csv << %w[project totalLines fileScopeLines classScopeLines methodScopeLines moduleScopeLines isTest filename]
 classes_csv = CSV.new(classes_file)
-classes_csv << %w[project class numDirectInstVars numClassVars numTotalInstVars numSuperclasses isTest filename]
+classes_csv << %w[project class numDirectInstVars numClassVars numTotalInstVars numSuperclasses numClasses numMethods isTest filename]
 modules_csv = CSV.new(modules_file)
-modules_csv << %w[project module numInstVars numClassVars isTest filename]
+modules_csv << %w[project module numInstVars numClassVars numClasses numMethods isTest filename]
 method_csv = CSV.new(method_file)
 method_csv << %w[project qualifiedPath name lines linesOfCode numArgs numLocals numLiterals isTest isInMethod filename]
 
