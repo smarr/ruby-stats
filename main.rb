@@ -85,6 +85,13 @@ class EntityStats
     @outer.test?
   end
 
+  def each_module
+    @modules.each do |m|
+      yield m
+      m.each_module(&Proc.new)
+    end
+  end
+
   def each_class
     @classes.each do |c|
       yield c
@@ -278,7 +285,31 @@ class StatsProcessor < Parser::AST::Processor
     ]
   end
 
-  def output_results(file_csv, _classes_csv, method_csv)
+  def output_module(modules_csv, mod)
+    modules_csv << [
+      @project_name,
+      mod.name,
+      mod.num_inst_vars,
+      mod.num_class_vars,
+      @current.test?,
+      @filename
+    ]
+  end
+
+  def output_class(classes_csv, clazz)
+    classes_csv << [
+      @project_name,
+      clazz.name,
+      clazz.num_inst_vars,
+      clazz.num_class_vars,
+      0,
+      0,
+      @current.test?,
+      @filename
+    ]
+  end
+
+  def output_results(file_csv, classes_csv, modules_csv, method_csv)
     # project totalLines fileScopeLines classScopeLines methodScopeLines moduleScopeLines isTest filename
 
     lines = @buffer.source_lines
@@ -296,8 +327,12 @@ class StatsProcessor < Parser::AST::Processor
     # lines.each_with_index do |val,index|
     #     puts @current.line_usage[index + 1].to_s.ljust(10, " ") + "| " + val
     # end
+    @current.each_module do |m|
+      output_module(modules_csv, m)
+    end
 
     @current.each_class do |c|
+      output_class(classes_csv, c)
       c.each_method do |m|
         output_method(method_csv, m)
       end
@@ -511,17 +546,21 @@ output_folder = ARGV[1]
 input_folder = ARGV[0]
 
 file_filename = "#{output_folder}/file.csv"
+modules_filename = "#{output_folder}/modules.csv"
 method_filename = "#{output_folder}/methods.csv"
 classes_filename = "#{output_folder}/classes.csv"
 
 file_file = File.open(file_filename, 'w')
 method_file = File.open(method_filename, 'w')
+modules_file = File.open(modules_filename, 'w')
 classes_file = File.open(classes_filename, 'w')
 
 file_csv = CSV.new(file_file)
 file_csv << %w[project totalLines fileScopeLines classScopeLines methodScopeLines moduleScopeLines isTest filename]
 classes_csv = CSV.new(classes_file)
-classes_csv << %w[project package class numDirectInstVars numClassVars numTotalInstVars numSuperclasses isTestClass]
+classes_csv << %w[project class numDirectInstVars numClassVars numTotalInstVars numSuperclasses isTest filename]
+modules_csv = CSV.new(modules_file)
+modules_csv << %w[project module numInstVars numClassVars isTest filename]
 method_csv = CSV.new(method_file)
 method_csv << %w[project qualifiedPath name lines linesOfCode numArgs numLocals numLiterals isTest isInMethod filename]
 
@@ -532,7 +571,7 @@ Dir.glob(search_glob) do |filename|
   begin
     processor = StatsProcessor.new(filename, root_dir)
     processor.start
-    processor.output_results(file_csv, classes_csv, method_csv)
+    processor.output_results(file_csv, classes_csv, modules_csv, method_csv)
   rescue StandardError => e
     puts "Some issue processing #{filename}. Exception: #{e}"
     puts e.backtrace
