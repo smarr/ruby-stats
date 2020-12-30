@@ -81,14 +81,29 @@ class EntityStats
 
   def add_method(method)
     @methods.append(method)
+    add_to_all_methods(method)
   end
 
   def add_class(clazz)
     @classes.append(clazz)
+    add_to_all_classes(clazz)
   end
 
   def add_module(mod)
     @modules.append(mod)
+    add_to_all_modules(mod)
+  end
+
+  def add_to_all_methods(method)
+    @outer.add_to_all_methods(method)
+  end
+
+  def add_to_all_modules(mod)
+    @outer.add_to_all_modules(mod)
+  end
+
+  def add_to_all_classes(clazz)
+    @outer.add_to_all_classes(clazz)
   end
 
   def filename
@@ -97,27 +112,6 @@ class EntityStats
 
   def test?
     @outer.test?
-  end
-
-  def each_module
-    @modules.each do |m|
-      yield m
-      m.each_module(&Proc.new)
-    end
-  end
-
-  def each_class
-    @classes.each do |c|
-      yield c
-      c.each_class(&Proc.new)
-    end
-  end
-
-  def each_method
-    @methods.each do |m|
-      yield m
-      m.each_method(&Proc.new)
-    end
   end
 
   def outer_path
@@ -146,6 +140,22 @@ class FileStats < EntityStats
 
     @instance_vars = Set.new
     @class_vars = Set.new
+
+    @all_methods = Set.new
+    @all_classes = Set.new
+    @all_modules = Set.new
+  end
+
+  def add_to_all_methods(method)
+    @all_methods.add(method)
+  end
+
+  def add_to_all_modules(mod)
+    @all_modules.add(mod)
+  end
+
+  def add_to_all_classes(clazz)
+    @all_classes.add(clazz)
   end
 
   def test?
@@ -186,6 +196,24 @@ class FileStats < EntityStats
 
   def line_use_type
     :file
+  end
+
+  def each_module
+    @all_modules.each do |m|
+      yield m
+    end
+  end
+
+  def each_class
+    @all_classes.each do |c|
+      yield c
+    end
+  end
+
+  def each_method
+    @all_methods.each do |m|
+      yield m
+    end
   end
 end
 
@@ -371,9 +399,6 @@ class StatsProcessor < Parser::AST::Processor
 
     @current.each_class do |c|
       output_class(classes_csv, c)
-      c.each_method do |m|
-        output_method(method_csv, m)
-      end
     end
 
     @current.each_method do |m|
